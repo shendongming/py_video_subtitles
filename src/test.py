@@ -6,107 +6,99 @@ import sys
 import os.path
 import time
 import cv
-print locals()
+
 fname=  os.path.dirname(__file__)+'/../test_video/1.mp4'
 imgpath=os.path.dirname(__file__)+'/../test_img/'
-print fname
-
-
+#print fname
 
 fp=cv.CreateFileCapture(fname)
 #视频测试
 #fp=cv.CreateCameraCapture(0)
-cv.SetTrackbarPos
-
+#cv.SetTrackbarPos
 
 img=cv.QueryFrame(fp)
 
-start_height=370;
-subtitles_range=(0,start_height,img.width,img.height-start_height)
+start_height=210;
+start_left=200;
+subtitles_range=(start_left,start_height,img.width-start_left,img.height-start_height)
 
 t1=time.time()
-cv.SetCaptureProperty(fp, cv.CV_CAP_PROP_POS_FRAMES,5000);
+cv.SetCaptureProperty(fp, cv.CV_CAP_PROP_POS_FRAMES,500);
  
 print time.time()-t1	
 
 def diff_img(img1,img2):
+	'比较2个图片'
 	diff=0
-	
+	if abs(img1.width-img2.width) * abs(img1.height-img2.height) >10:
+		return 99999
 	t1=t2=0
-	for x in range(img1.width):
-		for  y in range(img1.height):
-			
-			
-			
-			if sum(cv.Get2D(img1,y,x))>0:
-				#print cv.Get2D(img1,y,x)
-				t1+=1
-			 
-			if sum(cv.Get2D(img2,y,x))>0:
-				#print cv.Get2D(img2,y,x)
-				t2+=1
-
 	
-	return abs(t1-t2)
+	for x in range(min(img2.width,img1.width)):
+		for  y in range(min(img2.height,img1.height)):
+			t1=t2=0
+			if sum(cv.Get2D(img1,y,x))>100 :
+				t1=1
+			if sum(cv.Get2D(img2,y,x))>100:
+				t2=1
+				#cv.Set2D(img2,y,x,(255,255,255,0))
+			if t1!=t2:
+				diff +=1 
+	
+	return diff
+
 last_img=False;
 j=0
-for i in range(1000):
+max_diff=0
+
+while 1:
 	img=cv.QueryFrame(fp)
-	
-			#print p
-		#print x,t
-	#cv.ShowImage('test',img)
-	#CloneImage
-	src = cv.GetSubRect(img,subtitles_range )
-	y=12
-	#print y,src.height
-	t=0;
-	x=100
-	 
-	for x in range(src.width):
-		p =cv.Get2D(src,y,x)
+	if not img:
+		print 'done'
+		break
 
-		t=t+ sum( p)
+	start_x=end_x=0
+	for x in range(img.width):
+		t=0
+		for y in range(370,402):
+			p =cv.Get2D(img,y,x)
+			t=t+ sum( p)
 
-
-		if sum(p)>50:
-
-			p1=(x,y+25)
-			p2=(x,y+30)
-			#print  x,y,t,p,p1,p2
-			#cv.Line(src,p1,p2,(0,255,0,0))
+		if t>1000  :
+			if(start_x==0):
+				start_x=x
+			end_x=x+1	
 			
-			break
-	#cv.SaveImage('../test_img/test%d.png' % i,img)
-	
-	if t==0:
+	if start_x==0:
 		continue
 
-	 
-	
+	#根据扫描结果获取字幕区域
+	src=cv.GetSubRect(img,(start_x,370,end_x-start_x,402-370));
 
-	#imgstr= src.tostring()
+	#cv.ShowImage('sub',src)
+	#cv.ShowImage('img',img)
+	
+	#cv.WaitKey(1) 
+
 	if not last_img  :
-		print src
-		last_img=cv.CloneImage(cv.GetImage(src))
+		last_img=src
 		j=j+1
-		print  "write img",j
-		cv.SaveImage( (imgpath+'/test%d.png' % (j,)),src)
+		img_name=imgpath+'/test%04d.png' % (j,)
+		print 'save img :',img_name
+		cv.SaveImage( img_name,src)
 		continue
 
-	diff=diff_img(last_img,cv.GetImage(src))
-	
-	if diff >560:
+	#和上一次的比较,是否相同 (近似),生成目标图片
+	diff=diff_img(last_img,src)
+	max_diff=max(max_diff,diff)
+	#比较最近2个图片的差异
+	if diff >0:
 		print 'diff',diff
-		print 'change last'
-		print src
-		last_img=cv.CloneImage(cv.GetImage(src))
+	if diff >800:
+		last_img=src
 		j=j+1
-		print  "write img",j
-		cv.SaveImage( (imgpath+'/test%d.png' % (j,)),src)
-
-	
-	continue
-	break
-	#value=cv.Get2D(img,y,x)
+		img_name=imgpath+'/test%04d.png' % (j,)
+		print 'save img :',img_name
+		print cv.GetCaptureProperty(fp, cv.CV_CAP_PROP_POS_FRAMES);
+		cv.SaveImage( img_name,src)
 	
